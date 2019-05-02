@@ -13,7 +13,7 @@ CPU or NVIDIA GPU + CUDA CuDNN
 
 ### Generate synthetic data
 
-```python
+```
 python generate_data.py --data_root 'experiments/towncenter' --traj_num 1 -- traj_len 35
 ```
 
