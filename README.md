@@ -13,6 +13,18 @@ CPU or NVIDIA GPU + CUDA CuDNN
 
 ### Generate synthetic data
 
+```python
+python generate_data.py --data_root 'experiments/towncenter' --traj_num 1 -- traj_len 35
+```
+
 ### Train
 
+```python
+python train.py --data_root 'experiments' --beta 500 --checkpoints_dir 'experiments/checkpoints' --num_epoch 100
+```
+
 ### Test
+
+```python
+python test.py --data_root 'experiments/towncenter'
+```
