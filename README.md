@@ -19,12 +19,12 @@ python generate_data.py --data_root 'experiments/towncenter' --traj_num 1 -- tra
 
 ### Train
 
-```python
+```
 python train.py --data_root 'experiments' --beta 500 --checkpoints_dir 'experiments/checkpoints' --num_epoch 100
 ```
 
 ### Test
 
-```python
+```
 python test.py --data_root 'experiments/towncenter'
 ```
