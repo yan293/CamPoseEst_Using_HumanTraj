@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from models.data_preprocess import *
 from io_options.train_options import TrainOptions
-from models.trajnet import trajNetModelBidirect, Euc_Loss
+from models.trajnet import trajNetModelBidirect, Euc_Loss, Geo_Loss
 
 # hyper-parameters
 train_opts = TrainOptions().parse()
@@ -24,7 +24,8 @@ OUTPUT_SIZE = train_opts.output_dim
 LEARNING_RATE = train_opts.lr
 DATA_TRAIN_FILE = os.path.join(train_opts.data_root, 'data_train.pkl')
 MODEL_SAVE_PATH = train_opts.checkpoints_dir
-LOSS_CRITERION = Euc_Loss(beta=train_opts.beta)
+# LOSS_CRITERION = Euc_Loss(beta=train_opts.beta)
+LOSS_CRITERION = Geo_Loss()
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model = trajNetModelBidirect(INPUT_SIZE, OUTPUT_SIZE).to(DEVICE)
@@ -64,14 +65,16 @@ def train(model,
 	print('------------ Training -------------')
 	for epoch in range(EPOCH):
 		losses_train, losses_trans, losses_rotat = [], [], []
-		for step, (X, y, lengths) in enumerate(dataloader_train):
+		for step, (X, y, lengths, intrin_mat) in enumerate(dataloader_train):
 
 			# forward
 			X = Variable(torch.Tensor(X), requires_grad=False)
 			y = Variable(torch.Tensor(y), requires_grad=False)
 			X, y = X.to(device), y.to(device)
 			y_pred = model(X, lengths)
-			loss_train, loss_trans, loss_rotat = LOSS_CRITERION(y[:, 2:], y_pred)
+			intrin_mat = torch.Tensor(intrin_mat).to(device)
+			loss_train, loss_trans, loss_rotat = LOSS_CRITERION(X, y, y_pred, intrin_mat)
+			# loss_train, loss_trans, loss_rotat = LOSS_CRITERION(y[:, 2:], y_pred)
 			losses_train.append(loss_train.item())
 			losses_trans.append(loss_trans)
 			losses_rotat.append(loss_rotat)
