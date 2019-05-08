@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# from simulator.parameters import *
 import numpy as np
 import transforms3d
 import cv2
