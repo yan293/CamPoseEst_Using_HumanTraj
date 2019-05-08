@@ -147,6 +147,7 @@ class Euc_Loss(torch.nn.Module):
         super(Euc_Loss,self).__init__()
         self.beta = beta
 
+
     def forward(self, y, y_pred):
         t_pred = y_pred[:, :-4]
         r_pred = y_pred[:, -4:]
@@ -160,24 +161,111 @@ class Euc_Loss(torch.nn.Module):
 class Geo_Loss(torch.nn.Module):
 
     def __init__(self):
-        super(Geo_Loss,self).__init__()
+        super(Geo_Loss, self).__init__()
         # self.intrin_mat = intrin_mat
 
-    def forward(self, x, y, y_pred):
-        # compute ground truth 3D trajectory
-        t_pred = y_pred[:, :-4]
-        r_pred_quat = F.normalize(y_pred[:, -4:], p=2, dim=1)
-        r_mat = self.quat2mat(r_pred_quat)
-        t_mat = torch.stack((torch.eye(3), t_pred.unsqueeze(-1)), 1)
-        pdb.set_trace()
-        r_mat = 12
-        return None
 
-    def quat2mat(self, quat, order='zyx'): # here 'zyx' equals 'xyz' in transforms3d.euler.quat2euler()
+    def forward(self, X, y, y_pred, intrin_mat):
+        if y.shape[1] < 7:
+            assert("extrinsics label must be a dimensions of Nx7")
+        y_pred = torch.cat((y[:, :2], y_pred),1)
+        t_pred_batch = y_pred[:, :-4]
+        r_pred_quat_batch = F.normalize(y_pred[:, -4:], p=2, dim=1)
+        t_label_batch = y[:, :-4]
+        r_label_batch = y[:, -4:]
+
+        # compute camera matrix
+        ex_mat_batch_pred = self.compute_extrin_mat(t_pred_batch, r_pred_quat_batch)
+        ex_mat_batch = self.compute_extrin_mat(t_label_batch, r_label_batch) # ALL MOST SURE CORRECT UNTIL THIS
+        in_mat_batch = intrin_mat.repeat(len(ex_mat_batch), 1, 1)
+        cam_mat_batch_pred = in_mat_batch.bmm(ex_mat_batch_pred)
+        cam_mat_batch = in_mat_batch.bmm(ex_mat_batch)
+
+        # project from image to ground
+        traj_3d_batch_pred = self.project_im2ground(cam_mat_batch_pred, X)
+        traj_3d_batch = self.project_im2ground(cam_mat_batch, X)
+
+        # euclidean loss of trajectory
+        traj_diff = traj_3d_batch_pred - traj_3d_batch
+        loss = torch.norm(traj_diff, p=2, dim=-1).sum(dim=-1).mean()
+        loss_t = F.l1_loss(y_pred[:, :-4], y[:, :-4])
+        loss_r = F.l1_loss(y_pred[:, -4:], y[:, -4:])
+
+        return loss, loss_t.item(), loss_r.item()
+
+
+    def project_im2ground(self, cam_mat_batch, traj_2d_batch):
+        '''
+        project trajectory from img to ground, implemented in pytorch (cuda)
+        '''
+        device = "cpu"
+        if traj_2d_batch.is_cuda:
+            device = "cuda:" + str(traj_2d_batch.get_device())
+
+        max_traj_len = traj_2d_batch.shape[1]
+        traj_3d_batch = torch.zeros(traj_2d_batch.shape).to(device)
+
+        for i in range(len(cam_mat_batch)):
+            cam_mat = cam_mat_batch[i][:, [0, 1, 3]]
+            cam_mat_pinv = torch.pinverse(cam_mat)
+            traj_2d = traj_2d_batch[i]
+
+            # unpadding
+            idx_non_0 = torch.mul(traj_2d[:,0]>0, traj_2d[:,1]>0)
+            traj_2d = traj_2d[idx_non_0]
+
+            # homogeneous projection
+            traj_2d_homo = torch.cat((traj_2d, torch.ones(len(traj_2d), 1).to(device)), 1)
+            traj_3d_homo = cam_mat_pinv.mm(traj_2d_homo.t())
+            traj_3d_homo = traj_3d_homo / traj_3d_homo[-1,:].repeat(3,1)
+            traj_3d = traj_3d_homo[:-1, :].t()
+
+            traj_3d_batch[i, :len(traj_3d), :] = traj_3d
+
+        return traj_3d_batch
+
+
+    def compute_extrin_mat(self, t_vec_batch, r_quad_batch):
+
+        r_mat_batch = self.quat2rmat(r_quad_batch)
+        rt_vec_batch = r_mat_batch.bmm(t_vec_batch.unsqueeze(-1))
+        ex_mat_batch = torch.cat((r_mat_batch, rt_vec_batch), -1)
+
+        # # DEBUG BY YAN
+        # diff = []
+        # for i in range(len(r_mat_batch)):
+        #     trans = t_vec_batch[i]
+        #     rotat_quat = r_quad_batch[i]
+        #     ex_mat = self.extrin_mat_2(trans, rotat_quat)
+        #     aa = ex_mat_batch[i].data.cpu().numpy()
+        #     # print(np.max(np.abs(ex_mat - aa)))
+        #     diff.append(np.max(np.abs(ex_mat - aa)))
+        # print(np.max(diff))
+        # pdb.set_trace()
+
+        return ex_mat_batch
+
+
+    def trans2tmat(self, trans_batch):
+        t_vec_batch = torch.zeros(len(trans_batch), 3)
+        if t_vec_batch.shape[1] == 1:
+            t_vec_batch[:, -1] = trans_batch.squeeze()
+        elif t_vec_batch.shape[1] == 3:
+            t_vec_batch[:, -1] = trans_batch
+        else:
+            assert("translation vector dimension is wrong!")
+
+
+    def quat2rmat(self, quat_batch, order='xyz'): # here 'zyx' equals 'xyz' in transforms3d.euler.quat2euler()
         '''
         Convert quaternion to rotation matrix
         '''
-        r_euler_batch = self.quat2euler(quat, order)
+        device = "cpu"
+        if quat_batch.is_cuda:
+            device = "cuda:" + str(quat_batch.get_device())
+
+        r_euler_batch = self.quat2euler(quat_batch, order)
+        r_mat_batch = torch.zeros(len(quat_batch), 3, 3).to(device)
 
         # euler angle is correct, but matrix is not
         for i in range(len(r_euler_batch)):
@@ -192,16 +280,15 @@ class Geo_Loss(torch.nn.Module):
                                      [-torch.sin(r_euler[2]), torch.cos(r_euler[2]), 0],
                                      [0,                              0, 1]])
             r_mat = r_1.mm(r_2.mm(r_3)).t()
-            bb=transforms3d.quaternions.quat2mat(quat[0].data.numpy())
-            print(r_mat.data.numpy() - bb)
-            aa=np.rad2deg(transforms3d.euler.quat2euler(quat[i].data.numpy(), axes='sxyz'))
-            cc=np.rad2deg(r_euler_batch[i].data.numpy())
-            print(aa, '\n', cc)
-            pdb.set_trace()
+            r_mat_batch[i, :, :] = r_mat
 
-            # 0428 night, transforms3d and hard-coded quat2mat do not match, debug...
+            # # DEBUG BY YAN, RESULT CONSISTANT WITH "transforms3d"
+            # aa = r_mat.data.numpy()
+            # bb = transforms3d.quaternions.quat2mat(quat_batch[i].data.cpu().numpy())
+            # print(np.max(aa - bb))
+            # pdb.set_trace()
+        return r_mat_batch
 
-        return None
 
     def quat2euler(self, quat, order, epsilon=0):
         """
@@ -220,30 +307,38 @@ class Geo_Loss(torch.nn.Module):
         q2 = quat[:, 2]
         q3 = quat[:, 3]
 
-        if order == 'xyz':
+        if order == 'zyx': # original 'xyz'
             x = torch.atan2(2 * (q0 * q1 - q2 * q3), 1 - 2*(q1 * q1 + q2 * q2))
             y = torch.asin(torch.clamp(2 * (q1 * q3 + q0 * q2), -1+epsilon, 1-epsilon))
             z = torch.atan2(2 * (q0 * q3 - q1 * q2), 1 - 2*(q2 * q2 + q3 * q3))
-        elif order == 'yzx':
+        elif order == 'xzy': # original 'yzx'
             x = torch.atan2(2 * (q0 * q1 - q2 * q3), 1 - 2*(q1 * q1 + q3 * q3))
             y = torch.atan2(2 * (q0 * q2 - q1 * q3), 1 - 2*(q2 * q2 + q3 * q3))
             z = torch.asin(torch.clamp(2 * (q1 * q2 + q0 * q3), -1+epsilon, 1-epsilon))
-        elif order == 'zxy':
+        elif order == 'yxz': # original 'zxy'
             x = torch.asin(torch.clamp(2 * (q0 * q1 + q2 * q3), -1+epsilon, 1-epsilon))
             y = torch.atan2(2 * (q0 * q2 - q1 * q3), 1 - 2*(q1 * q1 + q2 * q2))
             z = torch.atan2(2 * (q0 * q3 - q1 * q2), 1 - 2*(q1 * q1 + q3 * q3))
-        elif order == 'xzy':
+        elif order == 'yzx': # original 'xzy'
             x = torch.atan2(2 * (q0 * q1 + q2 * q3), 1 - 2*(q1 * q1 + q3 * q3))
             y = torch.atan2(2 * (q0 * q2 + q1 * q3), 1 - 2*(q2 * q2 + q3 * q3))
             z = torch.asin(torch.clamp(2 * (q0 * q3 - q1 * q2), -1+epsilon, 1-epsilon))
-        elif order == 'yxz':
+        elif order == 'zxy': # original 'yxz'
             x = torch.asin(torch.clamp(2 * (q0 * q1 - q2 * q3), -1+epsilon, 1-epsilon))
             y = torch.atan2(2 * (q1 * q3 + q0 * q2), 1 - 2*(q1 * q1 + q2 * q2))
             z = torch.atan2(2 * (q1 * q2 + q0 * q3), 1 - 2*(q1 * q1 + q3 * q3))
-        elif order == 'zyx':
+        elif order == 'xyz': # original 'zyx'
             x = torch.atan2(2 * (q0 * q1 + q2 * q3), 1 - 2*(q1 * q1 + q2 * q2))
             y = torch.asin(torch.clamp(2 * (q0 * q2 - q1 * q3), -1+epsilon, 1-epsilon))
             z = torch.atan2(2 * (q0 * q3 + q1 * q2), 1 - 2*(q2 * q2 + q3 * q3))
         else:
             raise
         return torch.stack((x, y, z), dim=1).view(original_shape)
+
+
+    # DEBUG BY YAN
+    def extrin_mat_2(self, trans, rotat_quat):
+        t_mat = np.hstack((np.eye(3), np.array([trans.data.cpu().numpy()]).T))
+        r_mat = transforms3d.quaternions.quat2mat(rotat_quat.data.cpu().numpy())
+        ex_mat = r_mat.dot(t_mat)  # (3x4) extrinsic matrix
+        return ex_mat
