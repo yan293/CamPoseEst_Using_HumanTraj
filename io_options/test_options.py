@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from .base_options import BaseOptions
 
+
 class TestOptions(BaseOptions):
 
     def initialize(self):
