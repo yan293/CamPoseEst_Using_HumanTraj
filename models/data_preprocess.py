@@ -33,7 +33,9 @@ class TrajectoryCameraDataset(Dataset):
 		data, label = self.raw_data['data'], self.raw_data['label']
 		sample = {'trajectory': data[idx],
 		          'camera_extinsics': label[idx],
-		          'image_size': self.raw_data['image_size']}
+		          'image_size': self.raw_data['image_size'],
+		          'intrin_mat': self.raw_data['intrin_mat']
+		          }
 		if self.transform:
 			sample = self.transform(sample)
 		return sample
@@ -44,7 +46,9 @@ class ToTensor(object):
 	def __call__(self, sample):
 		return {'trajectory': torch.from_numpy(sample['trajectory']),
 				'camera_extinsics': torch.from_numpy(sample['camera_extinsics']),
-				'image_size': torch.from_numpy(np.array(sample['image_size']))}
+				'image_size': torch.from_numpy(np.array(sample['image_size'])),
+				'intrin_mat': torch.FloatTensor(np.array(sample['intrin_mat']))
+				}
 
 
 class RelativeTrajectory(object):
@@ -57,7 +61,9 @@ class RelativeTrajectory(object):
 		# traj = traj_diff
 		return {'trajectory': traj,
 				'camera_extinsics': sample['camera_extinsics'],
-				'image_size': sample['image_size']}
+				'image_size': sample['image_size'],
+				'intrin_mat': torch.from_numpy(np.array(sample['intrin_mat']))
+				}
 
 
 class NormalizeTo01(object):
@@ -68,7 +74,9 @@ class NormalizeTo01(object):
 		data[:, 1] = data[:, 1] / float(img_sz[1])
 		return {'trajectory': data,
 				'camera_extinsics': sample['camera_extinsics'],
-				'image_size': sample['image_size']}
+				'image_size': sample['image_size'],
+				'intrin_mat': torch.from_numpy(np.array(sample['intrin_mat']))
+				}
 
 
 def pad_packed_collate_fn(batch):
@@ -92,4 +100,5 @@ def pad_packed_collate_fn(batch):
 		label.append(y_i)
 		lengths.append(len(X_i))
 	data, label = np.stack(data, axis=0), np.stack(label, axis=0)
-	return data, label, lengths
+	intrin_mat = sample['intrin_mat']
+	return data, label, lengths, intrin_mat
