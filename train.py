@@ -6,14 +6,13 @@ import torch
 import argparse
 import numpy as np
 from torch import optim
-from torchvision import transforms
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
 from models.data_preprocess import *
 from io_options.train_options import TrainOptions
-from models.trajnet import trajNetModelBidirect, Euc_Loss, Geo_Loss
+from models.trajnet import *
 
 # hyper-parameters
 train_opts = TrainOptions().parse()
@@ -24,25 +23,11 @@ OUTPUT_SIZE = train_opts.output_dim
 LEARNING_RATE = train_opts.lr
 DATA_TRAIN_FILE = os.path.join(train_opts.data_root, 'data_train.pkl')
 MODEL_SAVE_PATH = train_opts.checkpoints_dir
-# LOSS_CRITERION = Euc_Loss(beta=train_opts.beta)
-LOSS_CRITERION = Geo_Loss()
+LOSS_CRITERION = EucLoss(beta=train_opts.beta)
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model = trajNetModelBidirect(INPUT_SIZE, OUTPUT_SIZE).to(DEVICE)
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-
-def load_data(data_path, shuffle=True):
-	''' Load data and generate data loader for network. '''
-	data = TrajectoryCameraDataset(data_path, transform=transforms.Compose(
-	                               [
-	                               # RelativeTrajectory(),
-	                               # NormalizeTo01(),
-	                               ToTensor()
-	                               ]))
-	dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=shuffle,
-	                        num_workers=4, collate_fn=pad_packed_collate_fn)
-	return dataloader
 
 
 def train(model,
@@ -72,9 +57,7 @@ def train(model,
 			y = Variable(torch.Tensor(y), requires_grad=False)
 			X, y = X.to(device), y.to(device)
 			y_pred = model(X, lengths)
-			intrin_mat = torch.Tensor(intrin_mat).to(device)
-			loss_train, loss_trans, loss_rotat = LOSS_CRITERION(X, y, y_pred, intrin_mat)
-			# loss_train, loss_trans, loss_rotat = LOSS_CRITERION(y[:, 2:], y_pred)
+			loss_train, loss_trans, loss_rotat = LOSS_CRITERION(y[:, 2:], y_pred)
 			losses_train.append(loss_train.item())
 			losses_trans.append(loss_trans)
 			losses_rotat.append(loss_rotat)
@@ -111,7 +94,7 @@ def train(model,
 
 def main():
 
-	dataloader_train = load_data(DATA_TRAIN_FILE)
+	dataloader_train = load_data(DATA_TRAIN_FILE, batch_size=BATCH_SIZE)
 	trained_model = train(model,
 	                      optimizer,
 	                      dataloader_train,
