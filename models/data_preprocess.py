@@ -4,6 +4,7 @@ import pdb
 import torch
 import numpy as np
 import pickle as pkl
+from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -102,3 +103,16 @@ def pad_packed_collate_fn(batch):
 	data, label = np.stack(data, axis=0), np.stack(label, axis=0)
 	intrin_mat = sample['intrin_mat']
 	return data, label, lengths, intrin_mat
+
+
+def load_data(data_path, batch_size=1024, shuffle=True):
+	''' Load data and generate data loader for network. '''
+	data = TrajectoryCameraDataset(data_path, transform=transforms.Compose(
+	                               [
+	                               # RelativeTrajectory(),
+	                               # NormalizeTo01(),
+	                               ToTensor()
+	                               ]))
+	dataloader = DataLoader(data, batch_size=batch_size, shuffle=shuffle,
+	                        num_workers=4, collate_fn=pad_packed_collate_fn)
+	return dataloader
