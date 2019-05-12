@@ -4,13 +4,12 @@ import os
 import pdb
 import torch
 import numpy as np
-from torchvision import transforms
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
 from io_options.test_options import TestOptions
-from models.data_preprocess import TrajectoryCameraDataset, ToTensor, pad_packed_collate_fn
+from models.data_preprocess import *
 
 # hyper-parameters
 test_opts = TestOptions().parse()
@@ -18,18 +17,6 @@ BATCH_SIZE = test_opts.batch_size
 DATA_TEST_FILE = os.path.join(test_opts.data_root, 'data_test.pkl')
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 TEST_EPOCHS = np.arange(60, 100 + 1, 5)
-
-
-def load_data(data_path, shuffle=True):
-	data = TrajectoryCameraDataset(data_path, transform=transforms.Compose(
-	                               [
-	                               # RelativeTrajectory(),
-	                               # NormalizeTo01(),
-	                               ToTensor()
-	                               ]))
-	dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=shuffle,
-	                        num_workers=4, collate_fn=pad_packed_collate_fn)
-	return dataloader
 
 
 def quantify_error(ys_pred, ys):
@@ -51,7 +38,7 @@ def test(model,
 
 	with torch.no_grad():
 		ys_pred, ys, Xs = [], [], []
-		for step, (X, y, lens) in enumerate(dataloader_test):
+		for step, (X, y, lens, intrin_mat) in enumerate(dataloader_test):
 			X = Variable(torch.Tensor(X), requires_grad=False).to(device)
 			y = Variable(torch.Tensor(y), requires_grad=False).to(device)
 			y_pred = model(X, lens)
@@ -73,7 +60,7 @@ def test(model,
 
 def main():
 
-	dataloader_test = load_data(DATA_TEST_FILE)
+	dataloader_test = load_data(DATA_TEST_FILE, batch_size=BATCH_SIZE)
 	for test_epoch in TEST_EPOCHS:
 		model = torch.load(os.path.join(test_opts.checkpoints_dir, 'trained_model_epoch' + str(test_epoch) + '.pt')).eval().to(DEVICE)
 		t_err, r_err = test(model, dataloader_test, device=DEVICE)
