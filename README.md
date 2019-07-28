@@ -21,14 +21,14 @@ As a first step, we first generate synthetic training data, given an estimated i
 ```
 python generate_data.py --data_root 'experiments/towncenter' --traj_num 10 -- traj_len 31
 ```
-
+<!-- 
 Pedestrian trajectories extracted from real videos and synthetic trajectories generated from our simulator are illustrated in the following figure.
 
 ![synthetic training data](./experiments/result_visualization/synthetic_training_data.png){ width=50% }
 
 Real test scenes and test trajectories are shown in the following figure.
 
-![real test data](./experiments/result_visualization/real_test_data.png)
+![real test data](./experiments/result_visualization/real_test_data.png) -->
 
 ### Train
 
