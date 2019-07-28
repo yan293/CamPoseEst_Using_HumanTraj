@@ -1,6 +1,8 @@
 # trajCamPose
 
-In this project, we proposed a method to estimated the 3D camera pose (of a static surveillance camera) from 2D pedestrian trajectories.  We have access to a rough estimation of the real camera pose, generate synthetic pedestrian trajectories for training our regressor, apply the trained regressor with pedestrian extracted from real surveillance video. A visualization of the real ground plane and the re-projected ground plane is presented in the following figure.
+In this project, we proposed a method to estimated the 3D camera pose (of a static surveillance camera) from 2D pedestrian trajectories.  We have access to a rough estimation of the real camera pose, generate synthetic pedestrian trajectories for training our regressor, apply the trained regressor with pedestrian extracted from real surveillance video.
+
+A visualization of the real ground plane and the re-projected ground plane is presented in the following figure.
 
 ![ground reprojection](experiments/result_visualization/ground_reprojection.png)
 
