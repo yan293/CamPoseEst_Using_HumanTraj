@@ -5,7 +5,7 @@ In this project, we proposed a method to estimated the 3D camera pose (of a stat
 A visualization of the real ground plane and the re-projected ground plane is given in the following figure. The blue dotted plane in each image represents the real position of the ground plane, while the pink dotted plane represents the ground plane projected with the camera pose **_P_** predicted by our NN regressor.
 
 <p align="center">
-    <img src="./experiments/result_visualization/ground_reprojection.png" alt="ground reprojection"  width="500">
+    <img src="./experiments/result_visualization/ground_reprojection.png" alt="ground reprojection"  width="700">
 </p>
 
 <!-- <p align="center">
