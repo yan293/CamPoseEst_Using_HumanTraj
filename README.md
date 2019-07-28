@@ -2,12 +2,10 @@
 
 In this project, we proposed a method to estimated the 3D camera pose (of a static surveillance camera) from 2D pedestrian trajectories.  We have access to a rough estimation of the real camera pose, generate synthetic pedestrian trajectories for training our regressor, apply the trained regressor with pedestrian extracted from real surveillance video.
 
+A visualization of the real ground plane and the re-projected ground plane is given in the following figure.
 
 <p align="center">
     <img src="./experiments/result_visualization/ground_reprojection.png" alt="Sample"  width="500">
-    <p align="center">
-        <em>A visualization of the real ground plane and the re-projected ground plane. The blue dotted plane in each image represents the real position of the ground plane, while the pink dotted plane represents the ground plane projected with the camera pose &P predicted by our NN regressor.</em>
-    </p>
 </p>
 
 <!-- <p align="center">
@@ -16,8 +14,6 @@ In this project, we proposed a method to estimated the 3D camera pose (of a stat
         <em>A visualization of the real ground plane and the re-projected ground plane. The blue dotted plane in each image represents the real position of the ground plane, while the pink dotted plane represents the ground plane projected with the camera pose $\boldsymbol{\tilde{\mathcal{P}}}$ predicted by our NN regressor.</em>
     </p>
 </p> -->
-
-h<sub>&theta;</sub>(x) = &theta;<sub>o</sub> x + &theta;<sub>1</sub>x
 
 <!-- The code was written by [Yan Xu](https://github.com/yanx001). -->
 
