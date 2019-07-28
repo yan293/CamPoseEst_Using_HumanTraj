@@ -5,7 +5,19 @@ In this project, we proposed a method to estimated the 3D camera pose (of a stat
 A visualization of the real ground plane and the re-projected ground plane is presented in the following figure.
 
 <!-- ![ground reprojection](./experiments/result_visualization/ground_reprojection.png) -->
-<img src="./experiments/result_visualization/ground_reprojection.png" width="500" "align=right">
+<img src="./experiments/result_visualization/ground_reprojection.png" width="500">
+
+<p align="center">
+    <img src="./experiments/result_visualization/ground_reprojection.png" alt="Sample"  width="500">
+    <p align="center">
+        <em>图片示例2</em>
+    </p>
+</p>
+--------------------- 
+作者：伊织__ 
+来源：CSDN 
+原文：https://blog.csdn.net/lovechris00/article/details/82379382 
+版权声明：本文为博主原创文章，转载请附上博文链接！
 
 <!-- The code was written by [Yan Xu](https://github.com/yanx001). -->
 
