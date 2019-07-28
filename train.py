@@ -78,7 +78,6 @@ def train(model,
 		if (epoch+1)%5 == 0:
 			print('model saved at epoch {}'.format(epoch+1))
 			torch.save(model, os.path.join(model_save_dir, 'trained_model_epoch' + str(epoch+1) + '.pt'))
-	# print(y, '\n', y_pred)
 	print('\nTotal training epoches: {}, total time cost: {} secs'.format(num_epoch, time.time()-time_start))
 	print('------------ End -------------')
 	return model
