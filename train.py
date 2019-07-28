@@ -2,7 +2,9 @@
 
 import os
 import pdb
+import time
 import torch
+import random
 import argparse
 import numpy as np
 from torch import optim
@@ -14,29 +16,16 @@ from models.data_preprocess import *
 from io_options.train_options import TrainOptions
 from models.trajnet import *
 
-# hyper-parameters
-train_opts = TrainOptions().parse()
-EPOCH = train_opts.num_epoch
-BATCH_SIZE = train_opts.batch_size
-INPUT_SIZE = train_opts.input_dim
-OUTPUT_SIZE = train_opts.output_dim
-LEARNING_RATE = train_opts.lr
-DATA_TRAIN_FILE = os.path.join(train_opts.data_root, 'data_train.pkl')
-MODEL_SAVE_PATH = train_opts.checkpoints_dir
-LOSS_CRITERION = EucLoss(beta=train_opts.beta)
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-model = trajNetModelBidirect(INPUT_SIZE, OUTPUT_SIZE).to(DEVICE)
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
 
 def train(model,
           optimizer,
+          loss_criterion,
           dataloader_train,
           model_save_dir,
+          num_epoch=100,
           dataloader_valid=None,
           record_log=False,
-          device=DEVICE):
+          device="cpu"):
 
 	# optimization setting
 	train_log_path = os.path.join(model_save_dir, 'train_log')
@@ -48,7 +37,8 @@ def train(model,
 	writer = SummaryWriter(train_log_path)
 
 	print('------------ Training -------------')
-	for epoch in range(EPOCH):
+	time_start = time.time()
+	for epoch in range(num_epoch):
 		losses_train, losses_trans, losses_rotat = [], [], []
 		for step, (X, y, lengths, intrin_mat) in enumerate(dataloader_train):
 
@@ -57,7 +47,7 @@ def train(model,
 			y = Variable(torch.Tensor(y), requires_grad=False)
 			X, y = X.to(device), y.to(device)
 			y_pred = model(X, lengths)
-			loss_train, loss_trans, loss_rotat = LOSS_CRITERION(y[:, 2:], y_pred)
+			loss_train, loss_trans, loss_rotat = loss_criterion(y[:, 2:], y_pred)
 			losses_train.append(loss_train.item())
 			losses_trans.append(loss_trans)
 			losses_rotat.append(loss_rotat)
@@ -74,7 +64,7 @@ def train(model,
 				X_valid = Variable(torch.Tensor(X_valid), requires_grad=False).to(device)
 				y_valid = Variable(torch.Tensor(y_valid), requires_grad=False).to(device)
 				y_valid_pred = model(X_valid, lens_valid)
-				losses_valid.append(LOSS_CRITERION(y_valid_pred, y_valid).item())
+				losses_valid.append(loss_criterion(y_valid_pred, y_valid).item())
 			loss_train = np.mean(losses_train)
 			loss_valid = np.mean(losses_valid)
 			if record_log:  # training log
@@ -84,23 +74,45 @@ def train(model,
 		else:
 			print('epoch: {} | loss: {:.4f}, loss_t: {:.4f}, loss_r: {:.4f}'.format(epoch + 1, np.mean(losses_train), np.mean(losses_trans), np.mean(losses_rotat)))
 
+		# save intermediate models
 		if (epoch+1)%5 == 0:
 			print('model saved at epoch {}'.format(epoch+1))
 			torch.save(model, os.path.join(model_save_dir, 'trained_model_epoch' + str(epoch+1) + '.pt'))
-	print(y, '\n', y_pred)
+	# print(y, '\n', y_pred)
+	print('\nTotal training epoches: {}, total time cost: {} secs'.format(num_epoch, time.time()-time_start))
 	print('------------ End -------------')
 	return model
 
 
 def main():
 
-	dataloader_train = load_data(DATA_TRAIN_FILE, batch_size=BATCH_SIZE)
+	# options
+	train_opts = TrainOptions().parse()
+	data_train_file = os.path.join(train_opts.exp_dir, 'data_train.pkl')
+	loss_criterion = EucLoss(beta=train_opts.beta)
+	device = torch.device("cuda:"+str(train_opts.gpu_ids[0]) if torch.cuda.is_available() else "cpu")
+
+	# random seed
+	manualSeed = 999
+	print('Random Seed: {}'.format(manualSeed))
+	random.seed(manualSeed)
+	torch.manual_seed(manualSeed)
+
+	# model and train
+	model = trajNetModelBidirect(train_opts.input_dim,
+	                             train_opts.output_dim).to(device)
+	optimizer = optim.Adam(model.parameters(),
+	                       lr=train_opts.lr)
+	dataloader_train = load_data(data_train_file,
+	                             batch_size=train_opts.batch_size)
 	trained_model = train(model,
 	                      optimizer,
+	                      loss_criterion,
 	                      dataloader_train,
-	                      MODEL_SAVE_PATH,
+	                      train_opts.checkpoints_dir,
+	                      num_epoch=train_opts.num_epoch,
 	                      record_log=True,
-	                      device=DEVICE)
+	                      device=device)
 
 
 if __name__ == '__main__':

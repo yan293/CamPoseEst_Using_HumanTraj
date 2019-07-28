@@ -11,13 +11,6 @@ from torch.utils.data import DataLoader
 from io_options.test_options import TestOptions
 from models.data_preprocess import *
 
-# hyper-parameters
-test_opts = TestOptions().parse()
-BATCH_SIZE = test_opts.batch_size
-DATA_TEST_FILE = os.path.join(test_opts.data_root, 'data_test.pkl')
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-TEST_EPOCHS = np.arange(60, 100 + 1, 5)
-
 
 def quantify_error(ys_pred, ys):
 	trans = ys[:, :-4]
@@ -30,11 +23,10 @@ def quantify_error(ys_pred, ys):
 	return np.mean(trans_err), np.mean(rotat_err)
 
 
-# test
 def test(model,
          dataloader_test,
-         device=DEVICE):
-	print('\n3) Testing...\n------------')
+         device="cpu"):
+	print('\nTesting...\n------------')
 
 	with torch.no_grad():
 		ys_pred, ys, Xs = [], [], []
@@ -46,25 +38,36 @@ def test(model,
 			ys.append(y.cpu().numpy())
 			Xs.append(X.cpu().numpy())
 		ys_pred = np.concatenate(ys_pred, axis=0)
-		ys = np.concatenate(ys, axis=0)[:, -5:]
+		ys = np.concatenate(ys, axis=0)[:, -5:]  # cut off the first 2 dimension
 		Xs = np.concatenate(Xs, axis=0)
 		t_err, r_err = quantify_error(ys_pred, ys)
-
-		# prediction
-		y_pred_mean = np.mean(ys_pred, axis=0)
-		y_pred_mean[-3:] = np.degrees(y_pred_mean[-3:])
-		y_real = np.mean(ys, axis=0)
-		y_real[-3:] = np.degrees(y_real[-3:])
-	return t_err, r_err
+	return t_err, r_err, ys_pred, ys
 
 
 def main():
 
-	dataloader_test = load_data(DATA_TEST_FILE, batch_size=BATCH_SIZE)
-	for test_epoch in TEST_EPOCHS:
-		model = torch.load(os.path.join(test_opts.checkpoints_dir, 'trained_model_epoch' + str(test_epoch) + '.pt')).eval().to(DEVICE)
-		t_err, r_err = test(model, dataloader_test, device=DEVICE)
+	# options
+	test_opts = TestOptions().parse()
+	data_test_file = os.path.join(test_opts.exp_dir, 'data_test.pkl')
+	device = torch.device("cuda:"+str(test_opts.gpu_ids[0]) if torch.cuda.is_available() else "cpu")
+	test_epochs = np.arange(test_opts.num_epoch - 20, test_opts.num_epoch + 1, 5)
+
+	dataloader_test = load_data(data_test_file, batch_size=test_opts.batch_size)
+	best_epoch = -1
+	t_rr_min = 1e10
+	for test_epoch in test_epochs:
+		model = torch.load(os.path.join(test_opts.checkpoints_dir, 'trained_model_epoch' + str(test_epoch) + '.pt')).eval().to(device)
+		t_err, r_err, _, _ = test(model, dataloader_test, device=device)
 		print('\nepoch: {}, translation error: {:.4f}m, rotation error {:.4f}'.format(test_epoch, t_err, r_err) + u'\u00b0')
+		if t_rr_min > t_err:
+			t_rr_min = t_err
+			best_epoch = test_epoch
+
+	# result of best model
+	model = torch.load(os.path.join(test_opts.checkpoints_dir, 'trained_model_epoch' + str(best_epoch) + '.pt')).eval().to(device)
+	t_err, r_err, ys_pred, ys = test(model, dataloader_test, device=device)
+	print('\nground truth: {0}\nprediction: {1}'.format(ys[0], np.mean(ys_pred, axis=0)))
+	print('translation error: {:.4f}m, rotation error {:.4f}'.format(t_err, r_err) + u'\u00b0')
 
 
 if __name__ == '__main__':

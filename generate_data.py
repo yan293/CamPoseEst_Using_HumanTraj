@@ -8,7 +8,6 @@ import pickle as pkl
 import matplotlib.pyplot as plt
 from transforms3d.euler import euler2quat, quat2euler
 
-from video.camera_pars import *
 from simulator.camera import Camera
 from simulator.simulator_options import *
 from simulator.camera_parameters import *
@@ -110,12 +109,20 @@ def generate_data(cam0, samp_range, samp_interval, traj_len=30, traj_num=10, spe
 
 def main():
 
-	# estimated camera
-	cam_pars = CAMERA_TOWNCENTER
-	camera = Camera(cam_pars)
-
-	# simulation options
+	cams = {'towncenter': CAMERA_TOWNCENTER,
+	        'duke1': CAMERA_DUKE_1,
+	        'duke2': CAMERA_DUKE_2,
+	        'duke3': CAMERA_DUKE_3,
+	        'duke4': CAMERA_DUKE_4,
+	        'duke5': CAMERA_DUKE_5,
+	        'duke6': CAMERA_DUKE_6,
+	        'duke7': CAMERA_DUKE_7,
+	        'duke8': CAMERA_DUKE_8
+	        }
 	sim_opts = SimulationOptions().parse()
+	cam_name = sim_opts.data_root.split('/')[-1]
+	camera = Camera(cams[cam_name])
+	print('camera: {}'.format(cam_name))
 	samp_range = [sim_opts.tz_range, sim_opts.rx_range,
 	              sim_opts.ry_range, sim_opts.rz_range]
 	samp_interval = [sim_opts.tz_inteval, sim_opts.rx_inteval,
@@ -128,7 +135,7 @@ def main():
 	              save_file=data_file,
 	              traj_len=sim_opts.traj_len,
 	              traj_num=sim_opts.traj_num,
-	              speed=sim_opts.human_speed)
+	              speed=sim_opts.human_speed)  # set human speed
 
 	# data_dict = pkl.load(open('experiments/towncenter/data_test.pkl', 'rb'))
 	# visualizer = Visualizer(camera, data_dict['data'][:10])

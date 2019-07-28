@@ -6,7 +6,6 @@ class TrainOptions(BaseOptions):
 
     def initialize(self):
         BaseOptions.initialize(self)
-        self.parser.add_argument('--num_epoch', type=int, default=100, help='number of training epochs')
         self.parser.add_argument('--adambeta1', type=float, default=0.9, help='first momentum term of adam')
         self.parser.add_argument('--adambeta2', type=float, default=0.999, help='second momentum term of adam')
         self.parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate for adam')
@@ -24,6 +23,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
         self.parser.add_argument('--niter', type=int, default=500, help='# of iter at starting learning rate')
         self.parser.add_argument('--niter_decay', type=int, default=0, help='# of iter to linearly decay learning rate to zero')
+        # self.parser.add_argument('--num_epoch', type=int, default=100, help='number of training epochs')
         # self.parser.add_argument('--init_weights', type=str, default='pretrained_models/places-googlenet.pickle', help='initiliaze network from, e.g., pretrained_models/places-googlenet.pickle')
         # self.parser.add_argument('--pool_size', type=int, default=50, help='the size of image buffer that stores previously generated images')
         # self.parser.add_argument('--use_html', action='store_true', help='save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')

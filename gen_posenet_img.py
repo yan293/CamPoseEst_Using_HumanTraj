@@ -7,10 +7,8 @@ import shutil
 import copy
 import pdb
 import os
-# from simulator.parameters import *
-from camera_parameters import *
+from simulator.camera_parameters import *
 from generate_data import *
-from video.camera_pars import *
 from PIL import Image
 from transforms3d.euler import euler2quat, quat2euler
 
@@ -55,7 +53,7 @@ def put_traj2img(traj, img_sz, rgb=True, img_dir=None):
 		pt = traj[i]
 		if 0 < pt[0] < img_sz[0] and 0 < pt[1] < img_sz[1]:
 			binary_img[pt[0], pt[1]] = 255
-			binary_img = big_white_point(binary_img, pt, img_sz, window_sz=[31, 31])
+			binary_img = big_white_point(binary_img, pt, img_sz, window_sz=[61, 61])
 	binary_img = binary_img.T
 	if rgb:
 		binary_img = np.stack([binary_img, binary_img, binary_img], axis=-1)
@@ -123,7 +121,7 @@ def gen_posenet_imgs(data_dict, save_dir=DATA_ROOT, img_dir=None, save_img=True,
 
 def main():
 
-	cam_par = CAMERA_TOWNCENTER
+	# cam_par = CAMERA_TOWNCENTER
 	data_train, data_test = check_data_exist(DATA_ROOT)
 	gen_posenet_imgs(data_test,
 	                 save_dir=DATA_ROOT,

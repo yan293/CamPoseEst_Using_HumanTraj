@@ -8,35 +8,6 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import transforms3d
 import numpy as np
 
-# single-branch single-directional model
-class trajNetModel(nn.Module):
-
-    def __init__(self, input_size, output_size, hidden_dim=64):
-        super(trajNetModel, self).__init__()
-        self.hidden_dim = hidden_dim
-        self.rnn = nn.LSTM(input_size=input_size,
-                           hidden_size=self.hidden_dim,
-                           num_layers=1,
-                           batch_first=True,
-                           bidirectional=False)
-        self.linear_1 = nn.Linear(self.hidden_dim, 128)
-        self.linear_2 = nn.Linear(128, 1024)
-        self.linear_3 = nn.Linear(1024, 512)
-        self.linear_4 = nn.Linear(512, 256)
-        self.output = nn.Linear(256, output_size)
-
-
-    def forward(self, x, lengths):
-        packed = pack_padded_sequence(x, lengths, batch_first=True)
-        _, (h_T, _) = self.rnn(packed)
-        rnn_out = h_T.squeeze()
-        hidden = F.relu(self.linear_1(rnn_out))
-        hidden = F.relu(self.linear_2(hidden))
-        hidden = F.relu(self.linear_3(hidden))
-        hidden = F.relu(self.linear_4(hidden))
-        output = self.output(hidden)
-        return output
-
 
 # bidirectional model with branches
 class trajNetModelBidirect(nn.Module):
@@ -94,10 +65,11 @@ class trajNetModelBidirect(nn.Module):
         return output
 
 
-class trajNetModelBidirectBN(nn.Module):
+
+class trajNetModelBidirectBeta(nn.Module):
 
     def __init__(self, input_size, output_size, hidden_dim=64):
-        super(trajNetModelBidirectBN, self).__init__()
+        super(trajNetModelBidirectBeta, self).__init__()
         self.hidden_dim = hidden_dim
         self.bidirect = True
         self.rnn = nn.LSTM(input_size=input_size,
@@ -110,13 +82,17 @@ class trajNetModelBidirectBN(nn.Module):
         self.linear_1 = nn.Linear(self.hidden_dim*2, 256) # bidrection, so x2
         self.linear_2 = nn.Linear(256, 1024)
         self.linear_3 = nn.Linear(1024, 512)
-        self.bn1 = nn.BatchNorm1d(num_features=256)
-        self.bn2 = nn.BatchNorm1d(num_features=1024)
-        self.bn2 = nn.BatchNorm1d(num_features=512)
 
         # branch layers
-        self.branch_t = nn.Linear(512, 1)
-        self.branch_r = nn.Linear(512, 4)
+        self.branch_t_1 = nn.Linear(512, 256)
+        self.branch_t_2 = nn.Linear(256, 128)
+        self.branch_t_3 = nn.Linear(128, 1)
+
+        self.branch_r_1 = nn.Linear(512, 256)
+        self.branch_r_2 = nn.Linear(256, 128)
+        self.branch_r_3 = nn.Linear(128, 4)
+
+        self.branch_beta = nn.Linear(512, 1)
 
 
     def forward(self, x, lengths):
@@ -129,22 +105,29 @@ class trajNetModelBidirectBN(nn.Module):
             rnn_out = torch.cat((rnn_out[0], rnn_out[1]), 1)
 
         # shared layers
-        hidden = F.relu(self.bn1(self.linear_1(rnn_out)))
-        hidden = F.relu(self.bn2(self.linear_2(hidden)))
-        hidden = F.relu(self.bn3(self.linear_3(hidden)))
+        hidden = F.relu(self.linear_1(rnn_out))
+        hidden = F.relu(self.linear_2(hidden))
+        hidden = F.relu(self.linear_3(hidden))
 
         # branch layers
-        trans = self.branch_t(hidden)
-        rotat = self.branch_r(hidden)
+        hidden_t = F.relu(self.branch_t_1(hidden))
+        hidden_t = F.relu(self.branch_t_2(hidden_t))
+        trans = self.branch_t_3(hidden_t)
+
+        hidden_r = F.relu(self.branch_r_1(hidden))
+        hidden_r = F.relu(self.branch_r_2(hidden_r))
+        rotat = F.normalize(self.branch_r_3(hidden_r), p=2, dim=1)
+
         output = torch.cat((trans, rotat), dim=1)
+        beta = self.branch_beta(hidden)
 
-        return output
+        return output, beta
 
 
-class Euc_Loss(torch.nn.Module):
+class EucLoss(torch.nn.Module):
 
     def __init__(self, beta=500):
-        super(Euc_Loss,self).__init__()
+        super(EucLoss,self).__init__()
         self.beta = beta
 
 
@@ -158,10 +141,28 @@ class Euc_Loss(torch.nn.Module):
         return loss, loss_t.item(), loss_r.item()
 
 
-class Geo_Loss(torch.nn.Module):
+
+class EucLossBeta(torch.nn.Module):
+
+    def __init__(self, beta=500):
+        super(EucLossBeta,self).__init__()
+        self.beta = beta
+
+
+    def forward(self, y, y_pred):
+        t_pred = y_pred[:, :-4]
+        r_pred = y_pred[:, -4:]
+        # r_pred = F.normalize(r_pred, p=2, dim=1)
+        loss_t = F.l1_loss(t_pred, y[:, :-4])
+        loss_r = F.l1_loss(r_pred, y[:, -4:])
+        loss = loss_t + self.beta * loss_r
+        return loss, loss_t.item(), loss_r.item()
+
+
+class GeoLoss(torch.nn.Module):
 
     def __init__(self):
-        super(Geo_Loss, self).__init__()
+        super(GeoLoss, self).__init__()
         # self.intrin_mat = intrin_mat
 
 
