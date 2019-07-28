@@ -24,11 +24,11 @@ python generate_data.py --data_root 'experiments/towncenter' --traj_num 10 -- tr
 
 Pedestrian trajectories extracted from real videos and synthetic trajectories generated from our simulator are illustrated in the following figure.
 
-![synthetic training data](experiments/result_visualization/synthetic_training_data.png | width=48)
+![synthetic training data](experiments/result_visualization/synthetic_training_data.png =150x50)
 
 Real test scenes and test trajectories are shown in the following figure.
 
-![real test data](experiments/result_visualization/real_test_data.png | width=48)
+![real test data](experiments/result_visualization/real_test_data.png)
 
 ### Train
 
