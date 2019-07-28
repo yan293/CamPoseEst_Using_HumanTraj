@@ -44,5 +44,5 @@ python train.py  --exp_dir 'experiments/towncenter' --checkpoints_dir 'experimen
 The test command is given as follows:
 
 ```
-python test.py --data_root 'experiments/towncenter'
+python test.py --exp_dir 'experiments/towncenter' --checkpoints_dir 'experiments/towncenter/checkpoints' --num_epoch 50
 ```
