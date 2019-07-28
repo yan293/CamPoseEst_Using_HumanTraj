@@ -84,17 +84,6 @@ def generate_data(cam0, samp_range, samp_interval, traj_len=30, traj_num=10, spe
 		                              human_speed=speed)
 		data += dict_i['data']
 		label += dict_i['label']
-		# print('\n', dict_i['label'][0])
-
-		# # VISUALIZATION FOR DEBUG
-		# visualizer = Visualizer(cam_i, dict_i['data'])
-		# save_name_img = 'results/123/img/' + str(idx+1) + '.png'
-		# visualizer.visualize_image(save_name=save_name_img)
-		# save_name_fov = 'results/123/fov/' + str(idx+1) + '.png'
-		# visualizer.visualize_fov(save_name=save_name_fov)
-		# plt.show()
-		# pdb.set_trace()
-
 	label = np.array(label)
 
 	# save data
@@ -136,13 +125,6 @@ def main():
 	              traj_len=sim_opts.traj_len,
 	              traj_num=sim_opts.traj_num,
 	              speed=sim_opts.human_speed)  # set human speed
-
-	# data_dict = pkl.load(open('experiments/towncenter/data_test.pkl', 'rb'))
-	# visualizer = Visualizer(camera, data_dict['data'][:10])
-	# visualizer.visualize_image()
-	# visualizer.visualize_fov()
-	# plt.show()
-	# pdb.set_trace()
 
 
 if __name__ == '__main__':
