@@ -19,7 +19,7 @@ CPU or NVIDIA GPU + CUDA CuDNN
 As a first step, we first generate synthetic training data, given an estimated initial camera pose.
 
 ```
-python generate_data.py --data_root 'experiments/towncenter' --traj_num 1 -- traj_len 35
+python generate_data.py --data_root 'experiments/towncenter' --traj_num 10 -- traj_len 31
 ```
 
 ### Train
